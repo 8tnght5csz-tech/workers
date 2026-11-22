@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+body{margin:0;font-family:sans-serif;background:#111;color:#fff}
+.box{padding:24px 20px;max-width:420px;margin:auto}
+h1{color:#f5c542;text-align:center}
+input,button{width:100%;padding:14px;margin:6px 0;border-radius:10px;border:0;font-size:16px;box-sizing:border-box}
+input{background:#222;color:#fff}
+button{background:#f5c542;color:#000;font-weight:bold}
+.link{background:none;color:#f5c542;font-weight:normal}
+.err{color:#ff6b6b;text-align:center;min-height:20px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#1c1c1c}
+nav button{background:none;color:#aaa;border-radius:0;margin:0;font-size:13px}
+nav button.on{color:#f5c542}
+.card{background:#1c1c1c;padding:16px;border-radius:12px;margin:10px 0}
+</style>
+</head>
+<body>
+<div class="box" id="app"></div>
+<script>
+const tg=Telegram.WebApp;tg.ready();tg.expand();
+const db=supabase.createClient('https://ccklzmzukvmacfgelpym.supabase.co','sb_publishable_hWyk-Z8Qav2F1hQlrjgDgQ_qdnIH8Yx');
+const app=document.getElementById('app');
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function authView(reg){
+ app.innerHTML=`<h1>Workers</h1>
+ ${reg?`<input id="fn" placeholder="Аты">
+ <input id="ln" placeholder="Фамилия">
+ <input id="age" type="number" placeholder="Жашы">`:''}
+ <input id="nick" placeholder="Никнейм">
+ <input id="pw" type="password" placeholder="Пароль">
+ <div class="err" id="err"></div>
+ <button onclick="${reg?'register()':'login()'}">${reg?'Каттоо':'Кирүү'}</button>
+ <button class="link" onclick="authView(${!reg})">${reg?'Аккаунт бар, кирүү':'Жаңы аккаунт ачуу'}</button>`;
+}
+function err(t){document.getElementById('err').textContent=t}
+
+async function register(){
+ const u={fn:fn.value.trim(),ln:ln.value.trim(),age:parseInt(age.value),nick:nick.value.trim(),pw:pw.value};
+ if(!u.fn||!u.ln||!u.age||!u.nick||u.pw.length<4)return err('Баарын толтур, пароль 4+ белги');
+ err('Күтө тур...');
+ const {error}=await db.from('users').insert(u);
+ if(error)return err(error.code==='23505'?'Бул никнейм бош эмес':'Ката: '+error.message);
+ localStorage.setItem('me',u.nick);home('main');
+}
+async function login(){
+ err('Күтө тур...');
+ const {data,error}=await db.from('users').select('nick').eq('nick',nick.value.trim()).eq('pw',pw.value).maybeSingle();
+ if(error)return err('Ката: '+error.message);
+ if(!data)return err('Никнейм же пароль туура эмес');
+ localStorage.setItem('me',data.nick);home('main');
+}
+async function home(tab){
+ const me=localStorage.getItem('me');
+ if(!me)return authView(true);
+ const {data:u}=await db.from('users').select('*').eq('nick',me).maybeSingle();
+ if(!u){localStorage.removeItem('me');return authView(true);}
+ const t={
+  main:'<h1>Главный</h1><div class="card">Маалымат сатып алуу / буйрутма бөлүмү (жакында)</div>',
+  chat:'<h1>Чат</h1><div class="card">Генералдардын жана Медиумдардын чаттары (жакында)</div>',
+  mission:'<h1>Миссия</h1><div class="card">Тапшырмалар (жакында)</div>',
+  me:`<h1>Кабинет</h1><div class="card">Никнейм: <b>${esc(u.nick)}</b><br>Звание: ${esc(u.rank)}<br>Уровень: ${u.level}</div><button onclick="logout()">Чыгуу</button>`
+ };
+ app.innerHTML=t[tab]+`<div style="height:70px"></div>
+ <nav>${[['main','Главный'],['chat','Чат'],['mission','Миссия'],['me','Кабинет']]
+ .map(x=>`<button class="${x[0]==tab?'on':''}" onclick="home('${x[0]}')">${x[1]}</button>`).join('')}</nav>`;
+}
+function logout(){localStorage.removeItem('me');authView(false)}
+localStorage.getItem('me')?home('main'):authView(true);
+</script>
+</body>
+</html>
