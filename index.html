@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+body{margin:0;font-family:sans-serif;background:#111;color:#fff}
+.box{padding:24px 20px;max-width:420px;margin:auto}
+h1{color:#f5c542;text-align:center}
+input,button,select,textarea{width:100%;padding:14px;margin:6px 0;border-radius:10px;border:0;font-size:16px;box-sizing:border-box;font-family:inherit}
+input,select,textarea{background:#222;color:#fff}
+button{background:#f5c542;color:#000;font-weight:bold}
+.link{background:none;color:#f5c542;font-weight:normal}
+.red{background:#c0392b;color:#fff}
+.err{color:#ff6b6b;text-align:center;min-height:20px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#1c1c1c;z-index:5}
+nav button{background:none;color:#aaa;border-radius:0;margin:0;font-size:13px}
+nav button.on{color:#f5c542}
+.card{background:#1c1c1c;padding:16px;border-radius:12px;margin:10px 0}
+.room{background:#1c1c1c;color:#fff;text-align:left;font-weight:normal}
+.msgs{height:calc(100vh - 260px);overflow-y:auto;padding:4px}
+.m{background:#1c1c1c;padding:8px 12px;border-radius:12px;margin:6px 0;max-width:85%;word-wrap:break-word}
+.m.me{background:#3a3115;margin-left:auto}
+.m b{color:#f5c542;font-size:12px;display:block}
+.send{display:flex;gap:6px}
+.send input{flex:1}
+.send button{width:70px}
+.row{display:flex;gap:6px}
+small{color:#aaa}
+</style>
+</head>
+<body>
+<div class="box" id="app"></div>
+<script>
+const tg=Telegram.WebApp;tg.ready();tg.expand();
+const db=supabase.createClient('https://ccklzmzukvmacfgelpym.supabase.co','sb_publishable_hWyk-Z8Qav2F1hQlrjgDgQ_qdnIH8Yx');
+const app=document.getElementById('app');
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let chan=null,ME=null,USERS=[],BACK=()=>home('chat');
+const isBoss=()=>ME&&ME.rank==='Boss';
+function ask(msg,cb){if(tg.showConfirm)tg.showConfirm(msg,ok=>ok&&cb());else if(confirm(msg))cb();}
+function err(t){const e=$('err');if(e)e.textContent=t}
+
+function authView(reg){
+ app.innerHTML=`<h1>Workers</h1>
+ ${reg?`<input id="fn" placeholder="Аты"><input id="ln" placeholder="Фамилия"><input id="age" type="number" placeholder="Жашы">`:''}
+ <input id="nick" placeholder="Никнейм">
+ <input id="pw" type="password" placeholder="Пароль">
+ <div class="err" id="err"></div>
+ <button onclick="${reg?'register()':'login()'}">${reg?'Каттоо':'Кирүү'}</button>
+ <button class="link" onclick="authView(${!reg})">${reg?'Аккаунт бар, кирүү':'Жаңы аккаунт ачуу'}</button>`;
+}
+async function register(){
+ const u={fn:$('fn').value.trim(),ln:$('ln').value.trim(),age:parseInt($('age').value),nick:$('nick').value.trim(),pw:$('pw').value};
+ if(!u.fn||!u.ln||!u.age||!u.nick||u.pw.length<4)return err('Баарын толтур, пароль 4+ белги');
+ err('Күтө тур...');
+ const {error}=await db.from('users').insert(u);
+ if(error)return err(error.code==='23505'?'Бул никнейм бош эмес':'Ката: '+error.message);
+ localStorage.setItem('me',u.nick);home('main');
+}
+async function login(){
+ err('Күтө тур...');
+ const {data,error}=await db.from('users').select('nick').eq('nick',$('nick').value.trim()).eq('pw',$('pw').value).maybeSingle();
+ if(error)return err('Ката: '+error.message);
+ if(!data)return err('Никнейм же пароль туура эмес');
+ localStorage.setItem('me',data.nick);home('main');
+}
+function navHTML(tab){
+ return `<div style="height:70px"></div><nav>${[['main','Главный'],['chat','Чат'],['mission','Миссия'],['me','Кабинет']]
+ .map(x=>`<button class="${x[0]==tab?'on':''}" onclick="home('${x[0]}')">${x[1]}</button>`).join('')}</nav>`;
+}
+async function home(tab){
+ if(chan){db.removeChannel(chan);chan=null}
+ BACK=()=>home('chat');
+ const me=localStorage.getItem('me');
+ if(!me)return authView(true);
+ const {data:u}=await db.from('users').select('*').eq('nick',me).maybeSingle();
+ if(!u){localStorage.removeItem('me');return authView(true);}
+ ME=u;
+ if(u.banned){app.innerHTML='<h1>🚫</h1><div class="card">Сиз бандалгансыз.</div><button onclick="logout()">Чыгуу</button>';return}
+ if(tab==='chat')return chatList();
+ if(tab==='mission')return missionView();
+ const t={
+  main:'<h1>Главный</h1><div class="card">Маалымат сатып алуу / буйрутма бөлүмү (жакында)</div>',
+  me:`<h1>Кабинет</h1><div class="card">Никнейм: <b>${esc(u.nick)}</b><br>Звание: ${esc(u.rank)}<br>Уровень: ${u.level}<br>Статус: ${esc(u.status)||'—'}</div>
+  ${isBoss()?'<button onclick="bossPanel()">👑 Boss панели</button>':''}
+  <button class="link" onclick="logout()">Чыгуу</button>`
+ };
+ app.innerHTML=t[tab]+navHTML(tab);
+}
+
+/* ---------- ЧАТ ---------- */
+function chatList(){
+ let rooms=[['all','🌐 Общий чат']];
+ for(let i=1;i<=7;i++)rooms.push(['g'+i,'⭐ General '+i]);
+ let h=`<h1>Чат</h1>`+rooms.map(r=>`<button class="room" onclick="BACK=()=>home('chat');openRoom('${r[0]}','${r[1]}')">${r[1]}</button>`).join('');
+ h+=isBoss()?`<button onclick="usersList()">💬 Колдонуучуга жазуу</button>`
+   :`<button class="room" onclick="BACK=()=>home('chat');openRoom('dm:${esc(ME.nick)}','👑 Boss менен жеке')">👑 Boss менен жеке</button>`;
+ app.innerHTML=h+navHTML('chat');
+}
+async function openRoom(id,title){
+ if(chan){db.removeChannel(chan);chan=null}
+ app.innerHTML=`<h1 style="font-size:20px">${esc(title)}</h1>
+ <div class="msgs" id="msgs"></div>
+ <div class="send"><input id="txt" placeholder="Билдирүү..."><button onclick="sendMsg('${esc(id)}')">➤</button></div>
+ <button class="link" onclick="BACK()">← Артка</button>`;
+ const {data}=await db.from('messages').select('*').eq('room',id).order('created_at',{ascending:true}).limit(100);
+ (data||[]).forEach(addMsg);
+ chan=db.channel('room-'+id).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'room=eq.'+id},p=>addMsg(p.new)).subscribe();
+}
+function addMsg(m){
+ const box=$('msgs');if(!box)return;
+ if(box.querySelector('[data-id="'+m.id+'"]'))return;
+ const d=document.createElement('div');
+ d.className='m'+(m.nick===ME.nick?' me':'');
+ d.setAttribute('data-id',m.id);
+ d.innerHTML='<b>'+esc(m.nick)+'</b>'+esc(m.text);
+ box.appendChild(d);box.scrollTop=box.scrollHeight;
+}
+async function sendMsg(room){
+ const el=$('txt');const text=el.value.trim();
+ if(!text)return;el.value='';
+ const {error}=await db.from('messages').insert({room,nick:ME.nick,text});
+ if(error)alert('Ката: '+error.message);
+}
+
+/* ---------- МИССИЯ ---------- */
+async function missionView(){
+ const {data:ms}=await db.from('missions').select('*').order('created_at',{ascending:false}).limit(30);
+ const {data:subs}=await db.from('submissions').select('*').eq('nick',ME.nick);
+ const mine={};(subs||[]).forEach(s=>mine[s.mission_id]=s);
+ const list=(ms||[]).filter(m=>!m.to_nick||m.to_nick===ME.nick);
+ const stt={new:'⏳ Текшерүүдө',ok:'✅ Кабыл алынды',no:'❌ Четке кагылды'};
+ let h='<h1>Миссия</h1>';
+ if(!list.length)h+='<div class="card">Азырынча миссия жок</div>';
+ list.forEach(m=>{
+  const s=mine[m.id];
+  h+=`<div class="card"><b>${esc(m.title)}</b><br><small>${m.to_nick?'Сизге жеке':'Баарына'}</small><br>${esc(m.body)}<br>
+  ${s?`<br>Жообуңуз: ${esc(s.answer)}<br><b>${stt[s.status]||''}</b>`
+  :`<textarea id="a${m.id}" rows="3" placeholder="Жообуңуз..."></textarea><button onclick="sendAnswer(${m.id})">Жөнөтүү</button>`}</div>`;
+ });
+ app.innerHTML=h+navHTML('mission');
+}
+async function sendAnswer(id){
+ const a=$('a'+id).value.trim();if(!a)return;
+ const {error}=await db.from('submissions').insert({mission_id:id,nick:ME.nick,answer:a});
+ if(error)return alert('Ката: '+error.message);
+ missionView();
+}
+
+/* ---------- BOSS ПАНЕЛИ ---------- */
+function bossPanel(){
+ if(!isBoss())return;
+ app.innerHTML=`<h1>👑 Boss панели</h1>
+ <button onclick="usersList()">👥 Колдонуучулар</button>
+ <button onclick="giveMissionView()">📋 Миссия берүү</button>
+ <button onclick="submissionsView()">📨 Жооптор (текшерүү)</button>
+ <button class="link" onclick="home('me')">← Артка</button>`;
+}
+async function usersList(){
+ if(!isBoss())return;
+ const {data}=await db.from('users').select('nick,rank,level,status,banned,fn,ln,age').order('created_at');
+ USERS=data||[];
+ app.innerHTML='<h1>Колдонуучулар</h1>'+USERS.map((u,i)=>
+  `<button class="room" onclick="userDetail(${i})">${u.banned?'🚫 ':''}${esc(u.nick)} <small>· ${esc(u.rank)} · ур.${u.level}</small></button>`).join('')
+  +`<button class="link" onclick="bossPanel()">← Артка</button>`;
+}
+function userDetail(i){
+ const u=USERS[i];
+ const ranks=['Worker','Medium','General','Boss'];
+ app.innerHTML=`<h1>${esc(u.nick)}</h1>
+ <div class="card">Аты: ${esc(u.fn)} ${esc(u.ln)}<br>Жашы: ${u.age}<br>Звание: <b>${esc(u.rank)}</b><br>Уровень: <b>${u.level}</b><br>Статус: ${esc(u.status)||'—'}<br>${u.banned?'🚫 Бандалган':''}</div>
+ <button onclick="BACK=()=>userDetail(${i});openRoom('dm:${esc(u.nick)}','💬 ${esc(u.nick)}')">💬 Түз жазуу</button>
+ <div class="row"><button onclick="upd(${i},{level:${u.level+1}})">Уровень +1</button><button onclick="upd(${i},{level:${Math.max(1,u.level-1)}})">Уровень −1</button></div>
+ <select id="rk">${ranks.map(r=>`<option ${r===u.rank?'selected':''}>${r}</option>`).join('')}</select>
+ <button onclick="upd(${i},{rank:$('rk').value})">Званиени сактоо</button>
+ <input id="st" placeholder="Өзгөчө статус" value="${esc(u.status)}">
+ <button onclick="upd(${i},{status:$('st').value.trim()})">Статусту сактоо</button>
+ <button class="red" onclick="upd(${i},{banned:${!u.banned}})">${u.banned?'Банды алуу':'🚫 Бан кылуу'}</button>
+ <button class="red" onclick="delUser(${i})">🗑 Өчүрүү</button>
+ <button class="link" onclick="usersList()">← Артка</button>`;
+}
+async function upd(i,f){
+ const u=USERS[i];
+ const {error}=await db.from('users').update(f).eq('nick',u.nick);
+ if(error)return alert('Ката: '+error.message);
+ Object.assign(u,f);userDetail(i);
+}
+function delUser(i){
+ const u=USERS[i];
+ ask(u.nick+' өчүрүлсүнбү?',async()=>{
+  const {error}=await db.from('users').delete().eq('nick',u.nick);
+  if(error)return alert('Ката: '+error.message);
+  usersList();
+ });
+}
+function giveMissionView(){
+ app.innerHTML=`<h1>Миссия берүү</h1>
+ <input id="mt" placeholder="Аталышы">
+ <textarea id="mb" rows="4" placeholder="Тапшырма тексти"></textarea>
+ <input id="mn" placeholder="Кимге? (никнейм, бош = баарына)">
+ <div class="err" id="err"></div>
+ <button onclick="saveMission()">Жөнөтүү</button>
+ <button class="link" onclick="bossPanel()">← Артка</button>`;
+}
+async function saveMission(){
+ const title=$('mt').value.trim(),body=$('mb').value.trim(),to_nick=$('mn').value.trim();
+ if(!title||!body)return err('Аталышы жана текстин жаз');
+ const {error}=await db.from('missions').insert({title,body,to_nick});
+ if(error)return err('Ката: '+error.message);
+ alert('Миссия жөнөтүлдү ✅');bossPanel();
+}
+async function submissionsView(){
+ const {data:subs}=await db.from('submissions').select('*').eq('status','new').order('created_at');
+ const {data:ms}=await db.from('missions').select('id,title');
+ const t={};(ms||[]).forEach(m=>t[m.id]=m.title);
+ window.SUBS=subs||[];
+ let h='<h1>Жооптор</h1>';
+ if(!SUBS.length)h+='<div class="card">Жаңы жооп жок</div>';
+ SUBS.forEach((s,i)=>{
+  h+=`<div class="card"><b>${esc(s.nick)}</b> · <small>${esc(t[s.mission_id]||'')}</small><br>${esc(s.answer)}
+  <div class="row"><button onclick="review(${i},true)">✅ Кабыл</button><button class="red" onclick="review(${i},false)">❌ Жок</button></div></div>`;
+ });
+ app.innerHTML=h+`<button class="link" onclick="bossPanel()">← Артка</button>`;
+}
+async function review(i,ok){
+ const s=SUBS[i];
+ await db.from('submissions').update({status:ok?'ok':'no'}).eq('id',s.id);
+ if(ok){
+  const {data:u}=await db.from('users').select('level').eq('nick',s.nick).maybeSingle();
+  if(u)await db.from('users').update({level:u.level+1}).eq('nick',s.nick);
+ }
+ submissionsView();
+}
+
+function logout(){localStorage.removeItem('me');authView(false)}
+localStorage.getItem('me')?home('main'):authView(true);
+</script>
+</body>
+</html>
