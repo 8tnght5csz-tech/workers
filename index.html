@@ -1,72 +1,71 @@
 <!DOCTYPE html>
-<html>
+<html lang="ky">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Workers</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
-*{touch-action:manipulation;-webkit-text-size-adjust:100%}
-body{margin:0;font-family:sans-serif;background:#111;color:#fff}
-.box{padding:24px 20px;max-width:420px;margin:auto}
-h1{color:#f5c542;text-align:center}
-input,button,select,textarea{width:100%;padding:14px;margin:6px 0;border-radius:10px;border:0;font-size:16px;box-sizing:border-box;font-family:inherit}
-input,select,textarea{background:#222;color:#fff}
-button{background:#f5c542;color:#000;font-weight:bold}
-.link{background:none;color:#f5c542;font-weight:normal}
-.red{background:#c0392b;color:#fff}
-.err{color:#ff6b6b;text-align:center;min-height:20px}
-nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#1c1c1c;z-index:5}
-nav button{background:none;color:#aaa;border-radius:0;margin:0;font-size:13px}
-nav button.on{color:#f5c542}
-.card{background:#1c1c1c;padding:16px;border-radius:12px;margin:10px 0}
-.room{background:#1c1c1c;color:#fff;text-align:left;font-weight:normal}
-.msgs{height:calc(100vh - 260px);overflow-y:auto;padding:4px}
-.m{background:#1c1c1c;padding:8px 12px;border-radius:12px;margin:6px 0;max-width:85%;word-wrap:break-word}
-.m.me{background:#3a3115;margin-left:auto}
-.m b{color:#f5c542;font-size:12px;display:block}
-.send{display:flex;gap:6px}
-.send input{flex:1}
-.send button{width:70px}
+:root{--bg:#000;--fg:#f2f2f2;--dim:#8a8a8a;--line:#d9d9d9;--panel:#0c0c0c;--red:#9b1c1c}
+*{touch-action:manipulation;-webkit-text-size-adjust:100%;box-sizing:border-box}
+body{margin:0;font-family:Georgia,'Times New Roman',serif;background:var(--bg);color:var(--fg)}
+.box{padding:20px 18px;max-width:440px;margin:auto}
+h1{font-weight:400;text-align:center;letter-spacing:.3em;font-size:20px;margin:14px 0 18px;text-transform:uppercase}
+.logo{display:block;width:96px;height:96px;margin:6px auto 0;border-radius:50%}
+input,button,select,textarea{width:100%;padding:13px;margin:6px 0;border:1px solid var(--line);border-radius:0;font-size:16px;font-family:inherit;background:var(--bg);color:var(--fg)}
+button{background:var(--fg);color:var(--bg);letter-spacing:.12em;cursor:pointer}
+.link{background:none;color:var(--dim);border:0}
+.ghost{background:var(--bg);color:var(--fg)}
+.red{background:var(--bg);color:#e05252;border-color:#e05252}
+.err{color:#e05252;text-align:center;min-height:20px;font-size:14px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--bg);border-top:3px double var(--line);z-index:5;padding-bottom:env(safe-area-inset-bottom)}
+nav button{background:none;color:var(--dim);border:0;margin:0;font-size:12px;letter-spacing:.08em}
+nav button.on{color:var(--fg);text-decoration:underline;text-underline-offset:6px}
+.card{border:1px solid var(--line);outline:1px solid var(--line);outline-offset:3px;padding:16px;margin:14px 4px;background:var(--panel);line-height:1.6}
+.room{background:var(--panel);color:var(--fg);text-align:left;letter-spacing:.04em}
+.msgs{height:calc(100vh - 240px);overflow-y:auto;padding:4px}
+.m{border:1px solid #333;padding:8px 12px;margin:6px 0;max-width:85%;word-wrap:break-word}
+.m.me{margin-left:auto;border-color:var(--line)}
+.m b{font-size:12px;display:block;color:var(--dim);font-weight:400}
+.send{display:flex;gap:6px}.send input{flex:1}.send button{width:64px}
 .row{display:flex;gap:6px}
-small{color:#aaa}
+small{color:var(--dim)}
+.seal{display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;border:1px solid var(--line);border-radius:50%;outline:1px solid var(--line);outline-offset:3px;font-size:22px;margin:0 12px 0 4px;vertical-align:middle}
+.who{display:flex;align-items:center;margin-bottom:10px}
+.ul{display:flex;align-items:center}.ul .seal{width:34px;height:34px;font-size:16px;margin-right:10px;outline:0}
 </style>
 </head>
 <body>
 <div class="box" id="app"></div>
 <script>
-const VER='v3';
+const VER='v4';
+const LOGO='data:image/webp;base64,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';
 const tg=Telegram.WebApp;tg.ready();tg.expand();
 try{tg.disableVerticalSwipes()}catch(e){}
 const db=supabase.createClient('https://ccklzmzukvmacfgelpym.supabase.co','sb_publishable_hWyk-Z8Qav2F1hQlrjgDgQ_qdnIH8Yx');
-const app=document.getElementById('app');
-const $=id=>document.getElementById(id);
+const app=document.getElementById('app'),$=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let chan=null,ME=null,USERS=[],NAMES={},NAMES_OK=false,BACK=()=>home('chat');
 const isBoss=()=>ME&&ME.rank==='Boss';
-function ask(msg,cb){if(tg.showConfirm)tg.showConfirm(msg,ok=>ok&&cb());else if(confirm(msg))cb();}
+const GL={Boss:'頭',General:'將',Medium:'中',Worker:'工'};
+const lvl=u=>(u.rank==='Boss'||!u.level)?'None':u.level;
+const seal=r=>`<span class="seal">${GL[r]||'工'}</span>`;
+function ask(m,cb){if(tg.showConfirm)tg.showConfirm(m,ok=>ok&&cb());else if(confirm(m))cb();}
 function err(t){const e=$('err');if(e)e.textContent=t}
-function roomName(id){
- if(NAMES[id])return NAMES[id];
- if(id==='all')return '🌐 Общий чат';
- return '⭐ General '+id.slice(1);
-}
-async function loadNames(){
- const {data}=await db.from('rooms').select('*');
- (data||[]).forEach(r=>NAMES[r.id]=r.name);NAMES_OK=true;
-}
+function roomName(id){if(NAMES[id])return NAMES[id];if(id==='all')return '全 Общий чат';return '將 General '+id.slice(1)}
+async function loadNames(){const {data}=await db.from('rooms').select('*');(data||[]).forEach(r=>NAMES[r.id]=r.name);NAMES_OK=true}
 
 function authView(reg){
- app.innerHTML=`<h1>Workers</h1>
+ app.innerHTML=`<img class="logo" src="${LOGO}"><h1>Workers</h1>
  ${reg?`<input id="fn" placeholder="Аты"><input id="ln" placeholder="Фамилия"><input id="age" type="number" placeholder="Жашы">`:''}
- <input id="nick" placeholder="Никнейм">
- <input id="pw" type="password" placeholder="Пароль">
+ <input id="nick" placeholder="Никнейм" autocapitalize="off"><input id="pw" type="password" placeholder="Пароль">
  <div class="err" id="err"></div>
- <button onclick="${reg?'register()':'login()'}">${reg?'Каттоо':'Кирүү'}</button>
+ <button onclick="${reg?'register()':'login()'}">${reg?'КАТТОО':'КИРҮҮ'}</button>
  <button class="link" onclick="authView(${!reg})">${reg?'Аккаунт бар, кирүү':'Жаңы аккаунт ачуу'}</button>`;
 }
 async function register(){
- const u={fn:$('fn').value.trim(),ln:$('ln').value.trim(),age:parseInt($('age').value),nick:$('nick').value.trim(),pw:$('pw').value};
+ const u={fn:$('fn').value.trim(),ln:$('ln').value.trim(),age:parseInt($('age').value),nick:$('nick').value.trim(),pw:$('pw').value,level:0};
  if(!u.fn||!u.ln||!u.age||!u.nick||u.pw.length<4)return err('Баарын толтур, пароль 4+ белги');
  err('Күтө тур...');
  const {error}=await db.from('users').insert(u);
@@ -92,41 +91,34 @@ async function home(tab){
  if(!ME||ME.nick!==me||tab==='me'){
   if(!ME)app.innerHTML='<h1>Workers</h1><div class="card">Жүктөлүүдө...</div>';
   const {data:u}=await db.from('users').select('*').eq('nick',me).maybeSingle();
-  if(!u){localStorage.removeItem('me');ME=null;return authView(true);}
+  if(!u){localStorage.removeItem('me');ME=null;return authView(true)}
   ME=u;
  }
- if(ME.banned){app.innerHTML='<h1>🚫</h1><div class="card">Сиз бандалгансыз.</div><button onclick="logout()">Чыгуу</button>';return}
+ if(ME.banned){app.innerHTML='<h1>禁</h1><div class="card">Сиз бандалгансыз.</div><button onclick="logout()">Чыгуу</button>';return}
  if(!NAMES_OK)await loadNames();
  if(tab==='chat')return chatList();
  if(tab==='mission')return missionView();
  const u=ME;
  const t={
   main:'<h1>Главный</h1><div class="card">Маалымат сатып алуу / буйрутма бөлүмү (жакында)</div>',
-  me:`<h1>Кабинет</h1><div class="card">Никнейм: <b>${esc(u.nick)}</b><br>Звание: ${esc(u.rank)}<br>Уровень: ${u.level}<br>Статус: ${esc(u.status)||'—'}</div>
-  ${isBoss()?'<button onclick="bossPanel()">👑 Boss панели</button>':''}
+  me:`<h1>Кабинет</h1><div class="card"><div class="who">${seal(u.rank)}<div><b>${esc(u.nick)}</b><br><small>${esc(u.rank)}</small></div></div>Уровень: ${lvl(u)}<br>Статус: ${esc(u.status)||'—'}</div>
+  ${isBoss()?'<button onclick="bossPanel()">BOSS ПАНЕЛИ</button>':''}
   <button class="link" onclick="logout()">Чыгуу</button><center><small>${VER}</small></center>`
  };
  app.innerHTML=t[tab]+navHTML(tab);
 }
 
-/* ---------- ЧАТ ---------- */
+/* ЧАТ */
+const RIDS=['all','g1','g2','g3','g4','g5','g6','g7'];
 function chatList(){
- const ids=['all','g1','g2','g3','g4','g5','g6','g7'];
- let h=`<h1>Чат</h1>`+ids.map(id=>`<button class="room" onclick="BACK=()=>home('chat');openRoom('${id}')">${esc(roomName(id))}</button>`).join('');
- if(isBoss()){
-  h+=`<button onclick="usersList()">💬 Колдонуучуга жазуу</button><button onclick="renameView()">✏️ Бөлмө атын өзгөртүү</button>`;
- }else{
-  h+=`<button class="room" onclick="BACK=()=>home('chat');openRoom('dm:${esc(ME.nick)}','👑 Boss менен жеке')">👑 Boss менен жеке</button>`;
- }
+ let h=`<h1>Чат</h1>`+RIDS.map(id=>`<button class="room" onclick="BACK=()=>home('chat');openRoom('${id}')">${esc(roomName(id))}</button>`).join('');
+ h+=isBoss()?`<button onclick="usersList()">Колдонуучуга жазуу</button><button class="ghost" onclick="renameView()">Бөлмө атын өзгөртүү</button>`
+  :`<button class="room" onclick="BACK=()=>home('chat');openRoom('dm:${esc(ME.nick)}','頭 Boss менен жеке')">頭 Boss менен жеке</button>`;
  app.innerHTML=h+navHTML('chat');
 }
 function renameView(){
- const ids=['all','g1','g2','g3','g4','g5','g6','g7'];
- app.innerHTML=`<h1>Бөлмө аты</h1>
- <select id="rid">${ids.map(id=>`<option value="${id}">${esc(roomName(id))}</option>`).join('')}</select>
- <input id="rn" placeholder="Жаңы ат">
- <button onclick="saveRename()">Сактоо</button>
- <button class="link" onclick="home('chat')">← Артка</button>`;
+ app.innerHTML=`<h1>Бөлмө аты</h1><select id="rid">${RIDS.map(id=>`<option value="${id}">${esc(roomName(id))}</option>`).join('')}</select>
+ <input id="rn" placeholder="Жаңы ат"><button onclick="saveRename()">САКТОО</button><button class="link" onclick="home('chat')">← Артка</button>`;
 }
 async function saveRename(){
  const id=$('rid').value,name=$('rn').value.trim();if(!name)return;
@@ -137,8 +129,7 @@ async function saveRename(){
 async function openRoom(id,title){
  if(chan){db.removeChannel(chan);chan=null}
  title=title||roomName(id);
- app.innerHTML=`<h1 style="font-size:20px">${esc(title)}</h1>
- <div class="msgs" id="msgs"></div>
+ app.innerHTML=`<h1 style="font-size:16px">${esc(title)}</h1><div class="msgs" id="msgs"></div>
  <div class="send"><input id="txt" placeholder="Билдирүү..."><button onclick="sendMsg('${esc(id)}')">➤</button></div>
  <button class="link" onclick="BACK()">← Артка</button>`;
  const {data}=await db.from('messages').select('*').eq('room',id).order('created_at',{ascending:true}).limit(100);
@@ -146,37 +137,29 @@ async function openRoom(id,title){
  chan=db.channel('room-'+id).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'room=eq.'+id},p=>addMsg(p.new)).subscribe();
 }
 function addMsg(m){
- const box=$('msgs');if(!box)return;
- if(box.querySelector('[data-id="'+m.id+'"]'))return;
- const d=document.createElement('div');
- d.className='m'+(m.nick===ME.nick?' me':'');
- d.setAttribute('data-id',m.id);
- d.innerHTML='<b>'+esc(m.nick)+'</b>'+esc(m.text);
- box.appendChild(d);box.scrollTop=box.scrollHeight;
+ const box=$('msgs');if(!box||box.querySelector('[data-id="'+m.id+'"]'))return;
+ const d=document.createElement('div');d.className='m'+(m.nick===ME.nick?' me':'');d.setAttribute('data-id',m.id);
+ d.innerHTML='<b>'+esc(m.nick)+'</b>'+esc(m.text);box.appendChild(d);box.scrollTop=box.scrollHeight;
 }
 async function sendMsg(room){
- const el=$('txt');const text=el.value.trim();
- if(!text)return;el.value='';
+ const el=$('txt'),text=el.value.trim();if(!text)return;el.value='';
  const {error}=await db.from('messages').insert({room,nick:ME.nick,text});
  if(error)alert('Ката: '+error.message);
 }
 
-/* ---------- МИССИЯ ---------- */
+/* МИССИЯ */
 async function missionView(){
  const [{data:ms},{data:subs}]=await Promise.all([
   db.from('missions').select('*').order('created_at',{ascending:false}).limit(30),
   db.from('submissions').select('*').eq('nick',ME.nick)]);
  const mine={};(subs||[]).forEach(s=>mine[s.mission_id]=s);
  const list=(ms||[]).filter(m=>!m.to_nick||m.to_nick===ME.nick);
- const stt={new:'⏳ Текшерүүдө',ok:'✅ Кабыл алынды',no:'❌ Четке кагылды'};
+ const stt={new:'Текшерүүдө',ok:'Кабыл алынды',no:'Четке кагылды'};
  let h='<h1>Миссия</h1>';
  if(!list.length)h+='<div class="card">Азырынча миссия жок</div>';
- list.forEach(m=>{
-  const s=mine[m.id];
+ list.forEach(m=>{const s=mine[m.id];
   h+=`<div class="card"><b>${esc(m.title)}</b><br><small>${m.to_nick?'Сизге жеке':'Баарына'}</small><br>${esc(m.body)}<br>
-  ${s?`<br>Жообуңуз: ${esc(s.answer)}<br><b>${stt[s.status]||''}</b>`
-  :`<textarea id="a${m.id}" rows="3" placeholder="Жообуңуз..."></textarea><button onclick="sendAnswer(${m.id})">Жөнөтүү</button>`}</div>`;
- });
+  ${s?`<br>Жообуңуз: ${esc(s.answer)}<br><b>${stt[s.status]||''}</b>`:`<textarea id="a${m.id}" rows="3" placeholder="Жообуңуз..."></textarea><button onclick="sendAnswer(${m.id})">ЖӨНӨТҮҮ</button>`}</div>`;});
  app.innerHTML=h+navHTML('mission');
 }
 async function sendAnswer(id){
@@ -186,14 +169,14 @@ async function sendAnswer(id){
  missionView();
 }
 
-/* ---------- BOSS ПАНЕЛИ ---------- */
+/* BOSS */
 function bossPanel(){
  if(!isBoss())return;
- app.innerHTML=`<h1>👑 Boss панели</h1>
- <button onclick="usersList()">👥 Колдонуучулар</button>
- <button onclick="giveMissionView()">📋 Миссия берүү</button>
- <button onclick="submissionsView()">📨 Жооптор (текшерүү)</button>
- <button onclick="renameView()">✏️ Бөлмө атын өзгөртүү</button>
+ app.innerHTML=`<h1>Boss панели</h1>
+ <button onclick="usersList()">Колдонуучулар жана издөө</button>
+ <button onclick="giveMissionView()">Миссия берүү</button>
+ <button onclick="submissionsView()">Жооптор (текшерүү)</button>
+ <button onclick="renameView()">Бөлмө атын өзгөртүү</button>
  <button class="link" onclick="home('me')">← Артка</button>`;
 }
 async function usersList(){
@@ -202,32 +185,34 @@ async function usersList(){
  const {data,error}=await db.from('users').select('nick,rank,level,status,banned,fn,ln,age').order('created_at');
  if(error){app.innerHTML='<h1>Ката</h1><div class="card">'+esc(error.message)+'</div><button class="link" onclick="bossPanel()">← Артка</button>';return}
  USERS=data||[];
- app.innerHTML='<h1>Колдонуучулар ('+USERS.length+')</h1>'+USERS.map((u,i)=>
-  `<button class="room" onclick="userDetail(${i})">${u.banned?'🚫 ':''}${esc(u.nick)} <small>· ${esc(u.rank)} · ур.${u.level}</small></button>`).join('')
-  +`<button class="link" onclick="bossPanel()">← Артка</button>`;
+ app.innerHTML=`<h1>Колдонуучулар (${USERS.length})</h1><input id="q" placeholder="Издөө: ник, аты, звание..." oninput="filt()" autocapitalize="off"><div id="ul"></div><button class="link" onclick="bossPanel()">← Артка</button>`;
+ filt();
+}
+function filt(){
+ const q=($('q').value||'').toLowerCase().trim();
+ const h=USERS.map((u,i)=>[u,i]).filter(([u])=>!q||[u.nick,u.fn,u.ln,u.rank].join(' ').toLowerCase().includes(q))
+ .map(([u,i])=>`<button class="room ul" onclick="userDetail(${i})">${seal(u.rank)}<span>${u.banned?'[бан] ':''}${esc(u.nick)}<br><small>${esc(u.rank)} · ур. ${lvl(u)}</small></span></button>`).join('');
+ $('ul').innerHTML=h||'<div class="card">Табылган жок</div>';
 }
 function userDetail(i){
- const u=USERS[i];
- const ranks=['Worker','Medium','General','Boss'];
+ const u=USERS[i],ranks=['Worker','Medium','General','Boss'];
  app.innerHTML=`<h1>${esc(u.nick)}</h1>
- <div class="card">Аты: ${esc(u.fn)} ${esc(u.ln)}<br>Жашы: ${u.age}<br>Звание: <b>${esc(u.rank)}</b><br>Уровень: <b>${u.level}</b><br>Статус: ${esc(u.status)||'—'}<br>${u.banned?'🚫 Бандалган':''}</div>
- <button onclick="BACK=()=>userDetail(${i});openRoom('dm:${esc(u.nick)}','💬 ${esc(u.nick)}')">💬 Түз жазуу</button>
- <div class="row"><button onclick="upd(${i},{level:${u.level+1}})">Уровень +1</button><button onclick="upd(${i},{level:${Math.max(1,u.level-1)}})">Уровень −1</button></div>
+ <div class="card"><div class="who">${seal(u.rank)}<div><b>${esc(u.rank)}</b></div></div>Аты: ${esc(u.fn)} ${esc(u.ln)}<br>Жашы: ${u.age}<br>Уровень: <b>${lvl(u)}</b><br>Статус: ${esc(u.status)||'—'}<br>${u.banned?'Бандалган':''}</div>
+ <button onclick="BACK=()=>userDetail(${i});openRoom('dm:${esc(u.nick)}','${esc(u.nick)}')">Түз жазуу</button>
+ <div class="row"><button class="ghost" onclick="upd(${i},{level:${(u.level||0)+1}})">Уровень +1</button><button class="ghost" onclick="upd(${i},{level:${Math.max(0,(u.level||0)-1)}})">Уровень −1</button></div>
  <select id="rk">${ranks.map(r=>`<option ${r===u.rank?'selected':''}>${r}</option>`).join('')}</select>
- <button onclick="upd(${i},{rank:$('rk').value})">Званиени сактоо</button>
+ <button onclick="upd(${i},{rank:$('rk').value})">ЗВАНИЕНИ САКТОО</button>
  <input id="st" placeholder="Өзгөчө статус" value="${esc(u.status)}">
- <button onclick="upd(${i},{status:$('st').value.trim()})">Статусту сактоо</button>
- <button class="red" onclick="upd(${i},{banned:${!u.banned}})">${u.banned?'Банды алуу':'🚫 Бан кылуу'}</button>
- <button class="red" onclick="delUser(${i})">🗑 Өчүрүү</button>
+ <button onclick="upd(${i},{status:$('st').value.trim()})">СТАТУСТУ САКТОО</button>
+ <button class="red" onclick="upd(${i},{banned:${!u.banned}})">${u.banned?'БАНДЫ АЛУУ':'БАН КЫЛУУ'}</button>
+ <button class="red" onclick="delUser(${i})">ӨЧҮРҮҮ</button>
  <button class="link" onclick="usersList()">← Артка</button>`;
 }
 async function upd(i,f){
  const u=USERS[i];
  const {error}=await db.from('users').update(f).eq('nick',u.nick);
  if(error)return alert('Ката: '+error.message);
- Object.assign(u,f);
- if(ME&&u.nick===ME.nick)Object.assign(ME,f);
- userDetail(i);
+ Object.assign(u,f);if(ME&&u.nick===ME.nick)Object.assign(ME,f);userDetail(i);
 }
 function delUser(i){
  const u=USERS[i];
@@ -238,45 +223,34 @@ function delUser(i){
  });
 }
 function giveMissionView(){
- app.innerHTML=`<h1>Миссия берүү</h1>
- <input id="mt" placeholder="Аталышы">
- <textarea id="mb" rows="4" placeholder="Тапшырма тексти"></textarea>
- <input id="mn" placeholder="Кимге? (никнейм, бош = баарына)">
- <div class="err" id="err"></div>
- <button onclick="saveMission()">Жөнөтүү</button>
- <button class="link" onclick="bossPanel()">← Артка</button>`;
+ app.innerHTML=`<h1>Миссия берүү</h1><input id="mt" placeholder="Аталышы"><textarea id="mb" rows="4" placeholder="Тапшырма тексти"></textarea>
+ <input id="mn" placeholder="Кимге? (никнейм, бош = баарына)" autocapitalize="off"><div class="err" id="err"></div>
+ <button onclick="saveMission()">ЖӨНӨТҮҮ</button><button class="link" onclick="bossPanel()">← Артка</button>`;
 }
 async function saveMission(){
  const title=$('mt').value.trim(),body=$('mb').value.trim(),to_nick=$('mn').value.trim();
  if(!title||!body)return err('Аталышы жана текстин жаз');
  const {error}=await db.from('missions').insert({title,body,to_nick});
  if(error)return err('Ката: '+error.message);
- alert('Миссия жөнөтүлдү ✅');bossPanel();
+ alert('Миссия жөнөтүлдү');bossPanel();
 }
 async function submissionsView(){
  const [{data:subs},{data:ms}]=await Promise.all([
-  db.from('submissions').select('*').eq('status','new').order('created_at'),
-  db.from('missions').select('id,title')]);
- const t={};(ms||[]).forEach(m=>t[m.id]=m.title);
- window.SUBS=subs||[];
+  db.from('submissions').select('*').eq('status','new').order('created_at'),db.from('missions').select('id,title')]);
+ const t={};(ms||[]).forEach(m=>t[m.id]=m.title);window.SUBS=subs||[];
  let h='<h1>Жооптор</h1>';
  if(!SUBS.length)h+='<div class="card">Жаңы жооп жок</div>';
- SUBS.forEach((s,i)=>{
-  h+=`<div class="card"><b>${esc(s.nick)}</b> · <small>${esc(t[s.mission_id]||'')}</small><br>${esc(s.answer)}
-  <div class="row"><button onclick="review(${i},true)">✅ Кабыл</button><button class="red" onclick="review(${i},false)">❌ Жок</button></div></div>`;
- });
+ SUBS.forEach((s,i)=>{h+=`<div class="card"><b>${esc(s.nick)}</b> · <small>${esc(t[s.mission_id]||'')}</small><br>${esc(s.answer)}
+  <div class="row"><button onclick="review(${i},true)">КАБЫЛ</button><button class="red" onclick="review(${i},false)">ЖОК</button></div></div>`});
  app.innerHTML=h+`<button class="link" onclick="bossPanel()">← Артка</button>`;
 }
 async function review(i,ok){
  const s=SUBS[i];
  await db.from('submissions').update({status:ok?'ok':'no'}).eq('id',s.id);
- if(ok){
-  const {data:u}=await db.from('users').select('level').eq('nick',s.nick).maybeSingle();
-  if(u)await db.from('users').update({level:u.level+1}).eq('nick',s.nick);
- }
+ if(ok){const {data:u}=await db.from('users').select('level').eq('nick',s.nick).maybeSingle();
+  if(u)await db.from('users').update({level:(u.level||0)+1}).eq('nick',s.nick);}
  submissionsView();
 }
-
 function logout(){localStorage.removeItem('me');ME=null;authView(false)}
 localStorage.getItem('me')?home('main'):authView(true);
 </script>
